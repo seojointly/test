@@ -49,8 +49,8 @@ jobs:
 
           # project.json에서 Done 상태인 Issue의 number 항목만 추출
           ISSUE_NUMBERS=$(jq -r '
-            .items[] 
-            | select(.status == "Done" and .content.type == "Issue") 
+            .items[]
+            | select(.status == "Done" and .content.type == "Issue")
             | .content.number
           ' project.json)
 
@@ -63,7 +63,7 @@ jobs:
           for NUMBER in $ISSUE_NUMBERS; do
             echo "----------------------------------------"
             echo "Checking Issue #$NUMBER"
-            
+
             gh api graphql \
               -f query='
                 query($owner: String!, $repo: String!, $number: Int!) {
@@ -83,5 +83,35 @@ jobs:
               ' \
               -F owner="$OWNER" \
               -F repo="$REPO" \
-              -F number=$NUMBER
+              -F number=$NUMBER | jq .
           done
+
+      - name: Move test item back to In review
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+        run: |
+          echo "=== Move Issue #2 to In review ==="
+
+          gh api graphql \
+            -f query='
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                updateProjectV2ItemFieldValue(
+                  input: {
+                    projectId: $projectId
+                    itemId: $itemId
+                    fieldId: $fieldId
+                    value: {
+                      singleSelectOptionId: $optionId
+                    }
+                  }
+                ) {
+                  projectV2Item {
+                    id
+                  }
+                }
+              }
+            ' \
+            -F projectId="PVT_kwHOELqz2M4BljcX" \
+            -F itemId="PVTI_lAHOELqz2M4BljcXzg-c5l8" \
+            -F fieldId="PVTSSF_lAHOELqz2M4BljcXzhkP30o" \
+            -F optionId="df73e18b"
