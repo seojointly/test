@@ -86,32 +86,51 @@ jobs:
               -F number=$NUMBER | jq .
           done
 
-      - name: Move test item back to In review
+      - name: Move Done items back to In review
         env:
           GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
         run: |
-          echo "=== Move Issue #2 to In review ==="
+          echo "=== Move Done Items to In review ==="
 
-          gh api graphql \
-            -f query='
-              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                updateProjectV2ItemFieldValue(
-                  input: {
-                    projectId: $projectId
-                    itemId: $itemId
-                    fieldId: $fieldId
-                    value: {
-                      singleSelectOptionId: $optionId
+          # 현재 Project에서 Done 상태인 Item ID 추출
+          DONE_ITEM_IDS=$(jq -r '
+            .items[]
+            | select(.status == "Done")
+            | .id
+          ' project.json)
+
+          if [ -z "$DONE_ITEM_IDS" ]; then
+            echo "Done 상태인 항목이 없습니다."
+            exit 0
+          fi
+
+          # Done 상태인 모든 Project Item을 In review로 변경
+          for ITEM_ID in $DONE_ITEM_IDS; do
+            echo "Moving Item: $ITEM_ID"
+
+            gh api graphql \
+              -f query='
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                  updateProjectV2ItemFieldValue(
+                    input: {
+                      projectId: $projectId
+                      itemId: $itemId
+                      fieldId: $fieldId
+                      value: {
+                        singleSelectOptionId: $optionId
+                      }
+                    }
+                  ) {
+                    projectV2Item {
+                      id
                     }
                   }
-                ) {
-                  projectV2Item {
-                    id
-                  }
                 }
-              }
-            ' \
-            -F projectId="PVT_kwHOELqz2M4BljcX" \
-            -F itemId="PVTI_lAHOELqz2M4BljcXzg-c5l8" \
-            -F fieldId="PVTSSF_lAHOELqz2M4BljcXzhkP30o" \
-            -F optionId="df73e18b"
+              ' \
+              -F projectId="PVT_kwHOELqz2M4BljcX" \
+              -F itemId="$ITEM_ID" \
+              -F fieldId="PVTSSF_lAHOELqz2M4BljcXzhkP30o" \
+              -F optionId="df73e18b"
+
+            echo "Moved to In review"
+          done
