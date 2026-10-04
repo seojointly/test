@@ -1,0 +1,14 @@
+name: Project Status Guard
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Project status
+        run: echo "Project status guard test"
