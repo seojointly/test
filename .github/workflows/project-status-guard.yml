@@ -38,3 +38,50 @@ jobs:
                 url: .content.url
               }
           ' project.json
+
+      - name: Check linked pull requests
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+          OWNER: "seojointly"
+          REPO: "test"
+        run: |
+          echo "=== Linked Pull Requests for Done Issues ==="
+
+          # project.json에서 Done 상태인 Issue의 number 항목만 추출
+          ISSUE_NUMBERS=$(jq -r '
+            .items[] 
+            | select(.status == "Done" and .content.type == "Issue") 
+            | .content.number
+          ' project.json)
+
+          if [ -z "$ISSUE_NUMBERS" ]; then
+            echo "Done 상태인 이슈가 없습니다."
+            exit 0
+          fi
+
+          # 추출된 Issue 번호별로 GraphQL 쿼리 실행
+          for NUMBER in $ISSUE_NUMBERS; do
+            echo "----------------------------------------"
+            echo "Checking Issue #$NUMBER"
+            
+            gh api graphql \
+              -f query='
+                query($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    issue(number: $number) {
+                      closed
+                      closedByPullRequestsReferences(first: 10) {
+                        nodes {
+                          number
+                          mergedAt
+                          url
+                        }
+                      }
+                    }
+                  }
+                }
+              ' \
+              -F owner="$OWNER" \
+              -F repo="$REPO" \
+              -F number=$NUMBER
+          done
