@@ -10,5 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check Project status
-        run: echo "Project status guard test"
+      - name: Read Project items
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+        run: |
+          gh project item-list 2 \
+            --owner @me \
+            --format json
